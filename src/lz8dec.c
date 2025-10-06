@@ -30,6 +30,7 @@ static int max_mlen = 255;      // Maximum match length (unlimited in LZ4)
 static int max_llen = 255;      // Maximum literal length (unlimited in LZ4)
 static int zero_offset = 0;     // Do not read offset on matches of length 0
 static int offset_rel = -1;     // Offset relative or absolute
+static int exor_offset = 0;     // Write inverse of offset
 
 // Read match/literal length - depends on max length
 static int get_len(int max)
@@ -101,6 +102,8 @@ int decode(void)
                 }
                 off = off + (x << 8);
             }
+            if( exor_offset )
+                off = mask ^ off;
             if( offset_rel < 0 )
                 off = pos - off + mask;
             else
@@ -134,7 +137,7 @@ int main(int argc, char **argv)
 
     prog_name = argv[0];
     int opt;
-    while( -1 != (opt = getopt(argc, argv, "hvno:l:m:A:")) )
+    while( -1 != (opt = getopt(argc, argv, "hvnxo:l:m:A:")) )
     {
         switch(opt)
         {
@@ -149,6 +152,9 @@ int main(int argc, char **argv)
                 break;
             case 'A':
                 offset_rel = strtol(optarg, 0, 0);
+                break;
+            case 'x':
+                exor_offset = 1;
                 break;
             case 'n':
                 zero_offset = 1;
@@ -172,6 +178,7 @@ int main(int argc, char **argv)
                        "  -m NUM   Sets max match run length (default = %d).\n"
                        "  -A ADDR  Decode position relative to address instead of offset.\n"
                        "  -n       Do not omit match offset on zero match length.\n"
+                       "  -x       Offsets are inverted.\n"
                        "  -v       Shows compression statistics.\n"
                        "  -h       Shows this help.\n",
                        prog_name, bits_moff, max_llen, max_mlen);

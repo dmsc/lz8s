@@ -92,8 +92,8 @@ static int min_mlen = 1;        // Minimum match length
 static int max_mlen = 255;      // Maximum match length (unlimited in LZ4)
 static int max_llen = 255;      // Maximum literal length (unlimited in LZ4)
 static int zero_offset = 0;     // Do not write offset on matches of length 0
+static int exor_offset = 0;     // Write inverse of offset
 static int zero_match_cost = 0; // Cost of a zero-length match
-
 
 #define max_off (1<<bits_moff)  // Maximum offset
 
@@ -357,6 +357,8 @@ static void code_match(struct bf *b, struct lzop *lz, int len, int off)
     }
     if(len || zero_offset)
     {
+        if( exor_offset )
+            off = off ^ (max_off - 1);
         if( bits_moff )
         {
             add_byte(b, off & 0xFF );
@@ -460,7 +462,7 @@ int main(int argc, char **argv)
 
     prog_name = argv[0];
     int opt;
-    while( -1 != (opt = getopt(argc, argv, "hqvndo:l:m:A:")) )
+    while( -1 != (opt = getopt(argc, argv, "hqvnxdo:l:m:A:")) )
     {
         switch(opt)
         {
@@ -478,6 +480,9 @@ int main(int argc, char **argv)
                 break;
             case 'd':
                 print_debug = 1;
+                break;
+            case 'x':
+                exor_offset = 1;
                 break;
             case 'n':
                 zero_offset = 1;
@@ -504,6 +509,7 @@ int main(int argc, char **argv)
                        "  -m NUM   Sets max match run length (default = %d).\n"
                        "  -A ADDR  Encode position relative to address instead of offset.\n"
                        "  -n       Do not omit match offset on zero match length.\n"
+                       "  -x       Write offsets with bits inverted.\n"
                        "  -v       Shows match length/offset statistics.\n"
                        "  -d       Shows debug information on compression chain.\n"
                        "  -q       Don't show detailed compression stats.\n"
