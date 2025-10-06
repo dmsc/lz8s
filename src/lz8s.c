@@ -116,6 +116,9 @@ struct lzop
     int bytes_matches;  // Bytes encoded as matches
     int bits_literal;   // Bits used to encode literal lengths
     int bits_matches;   // Bits used to encode matches
+    int num_literal;    // Number of literal blocks
+    int num_literal0;   // Number of literal blocks of zero length
+    int num_matches;    // Number of match blocks
 };
 
 // Returns maximal match length (and match position) at pos.
@@ -188,6 +191,8 @@ static void lzop_init(struct lzop *lz, const uint8_t *data, int size)
     lz->bytes_matches = 0;
     lz->bits_literal = 0;
     lz->bits_matches = 0;
+    lz->num_literal = 0;
+    lz->num_matches = 0;
     zero_match_cost = mlen_cost(0) + (zero_offset ? moff_cost(1) : 0);
 }
 
@@ -398,7 +403,10 @@ static int lzop_encode(struct bf *b, struct lzop *lz, int pos, int lpos, int off
             len = max_llen;
         // Already on literal - encode a zero length match to terminate
         if( lz->in_literal )
+        {
             code_match(b, lz, 0, 0);
+            lz->num_matches++;
+        }
         // Encode new literal count
         if( max_llen > 255 && len > 127 )
         {
@@ -416,6 +424,7 @@ static int lzop_encode(struct bf *b, struct lzop *lz, int pos, int lpos, int off
         add_byte(b, lz->data[pos]);
         lz->bytes_literal ++;
         lz->in_literal = 1;
+        lz->num_literal ++;
         return pos + len - 1;
     }
     else
@@ -434,10 +443,12 @@ static int lzop_encode(struct bf *b, struct lzop *lz, int pos, int lpos, int off
             add_byte(b, 0);
             stat_llen[0]++;
             lz->bits_matches += 8;
+            lz->num_literal0 ++;
         }
         code_match(b, lz, mlen, mpos);
         lz->bytes_matches ++;
         lz->in_literal = 0;
+        lz->num_matches ++;
         return pos + mlen - 1;
     }
 }
@@ -619,15 +630,21 @@ int main(int argc, char **argv)
         double total1 = 100.0 / sz;
         double total2 = 100.0 / b.total;
         int bits = lz.sp[0].mbits < lz.sp[0].lbits ? lz.sp[0].mbits : lz.sp[0].lbits;
-        fprintf(stderr, " Total size estimated %d bits", bits);
         if( b.total * 8 - bits )
-            fprintf(stderr, "(difference of %d with real)", b.total * 8 - bits);
-        fprintf(stderr, "\n"
-                        " Compression Information:                Input  Output\n"
+        {
+            fprintf(stderr,
+                    " Total size estimated %d bits, difference of %d with real.\n",
+                    bits, b.total * 8 - bits);
+        }
+        fprintf(stderr, " Compression Information:                Input  Output\n"
+                        " Number of matches blocks: %3d\n"
+                        " Number of literal blocks: %3d\n"
+                        " Number of literal skips:  %3d\n"
                         " Bytes encoded as matches: %5d bytes,  %4.1f%%     -\n"
                         " Bytes encoded as literal: %5d bytes,  %4.1f%%   %4.1f%%\n"
                         " Total matches overhead: %7d bits,     -     %4.1f%%\n"
                         " Total literal overhead: %7d bits,     -     %4.1f%%\n",
+                lz.num_matches, lz.num_literal, lz.num_literal0,
                 lz.bytes_matches, total1 * lz.bytes_matches,
                 lz.bytes_literal, total1 * lz.bytes_literal, total2 * lz.bytes_literal,
                 lz.bits_matches, total2 * 0.125 * lz.bits_matches,
