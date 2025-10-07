@@ -102,19 +102,18 @@ Sample code in a few languages
 
 ```
 1000 SRC=ADR("COMPRESSED DATA STRING")
-1010 LST=SRC+DATA_LEN : X=LST
-1020 PTR=DPEEK(88) : REM Output to Screen
-1030 WHILE SRC<LST
-1040   CNT=PEEK(SRC) : SRC=SRC+1
-1050   IF X<SRC
-1060      X=SRC : SRC=SRC+CNT
-1070   ELSE
-1080      X=PTR-PEEK(SRC)-1 : SRC=SRC+1
-1090   ENDIF
-1100   MOVE X, PTR, CNT
-1110   PTR=PTR+CNT
-1120 WEND
+1010 LST=SRC+DATA_LEN : PTR=DPEEK(88) : REM Output to Screen
+1020 WHILE SRC<LST
+1030  CNT=PEEK(SRC) : SRC=SRC+1       : REM Decode LITERAL
+1040  MOVE SRC, PTR, CNT
+1050  SRC=SRC+CNT : PTR=PTR+CNT
+1060  CNT=PEEK(SRC) : SRC=SRC+1       : REM Decode MATCH
+1070  MOVE PTR-PEEK(SRC)-1, PTR, CNT
+1080  SRC=SRC+1 : PTR=PTR+CNT
+1090 WEND
 ```
+
+See a working example in [samples](samples/turboxl.list)
 
 ### Assembler
 
@@ -182,3 +181,6 @@ doend:  pla
         pla
         rts
 ```
+
+See a working example in [samples](samples/a65-sample.asm)
+
